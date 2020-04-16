@@ -65,11 +65,15 @@ namespace UploadFilesServer
 
             app.UseCors("CorsPolicy");
             app.UseStaticFiles();
-            //app.UseStaticFiles(new StaticFileOptions()
-            //{
-             //   FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"Images")),
-             //   RequestPath = new PathString("/Images")
-           //});
+            
+           if (!Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), @"Images")))
+                Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), @"Images"));
+
+            app.UseStaticFiles(new StaticFileOptions()
+            {
+                FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"Images")),
+                RequestPath = new PathString("/Images")
+            });
 
             app.UseRouting();
 
