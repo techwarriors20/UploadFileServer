@@ -14,6 +14,6 @@ namespace UploadFilesServer.Context
         {
         }
 
-        public DbSet<Employee> Users { get; set; }
+        public DbSet<Face> Users { get; set; }
     }
 }
