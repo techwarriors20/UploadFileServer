@@ -97,7 +97,9 @@ namespace UploadFilesServer.Controllers
                     string imageUri = blobShare.Uri.AbsoluteUri;
                     var contentInfo = blobShare.Upload(file.OpenReadStream());
                     _logger.LogInformation("Blob upload success, image url:"+ imageUri);
+
                     var person = await MakeAnalysisRequest(imageUri);
+
                     _logger.LogInformation("Person identified & Email Send:" + person.Name);
                     return Ok(new { imageUri, person });
                 }
@@ -157,7 +159,7 @@ namespace UploadFilesServer.Controllers
                 _logger.LogInformation("Face identified using detect api call"+ uriDetect);
                 #endregion
 
-                #region Identify Persons
+            #region Identify Persons
 
                 List<Guid> faceIds = new List<Guid>();
 
@@ -185,7 +187,7 @@ namespace UploadFilesServer.Controllers
                 _logger.LogInformation("Faces identified using identify api call" + uriIdentify);
                 #endregion
 
-                //#region Person Details
+            #region Person Details
 
                 string uriPerson = uriBase + "persongroups/" + _appSettings.PersonGroup + "/persons/" + identifiedFaces[0].Candidates[0].PersonId;
 
@@ -196,13 +198,16 @@ namespace UploadFilesServer.Controllers
                 string contentPerson = await response.Content.ReadAsStringAsync();
                 var person = JsonConvert.DeserializeObject<Person>(contentPerson);
                 _logger.LogInformation("Person identified : " + person.Name);
-                //#endregion
+                #endregion
+
+            #region Email
                 string body = string.Format("<div> This person identified during the surveillance in your premises, and his/her name : <h5 style='color: green'>{0} </h5> <img width='452' height='302' src={1}  /></div>", person.Name, imageFilePath);
                 var mailMessage = new MailMessage(_appSettings.Email, _appSettings.Email, "Person Detected & Identified :"+ person.Name, body);
                 mailMessage.IsBodyHtml = true;
                 SendEmail(mailMessage);
 
                 _logger.LogInformation("Email sent successfully to the address : " + _appSettings.Email);
+                #endregion
                 return person;
 
             }
