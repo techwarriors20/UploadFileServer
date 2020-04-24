@@ -197,9 +197,11 @@ namespace UploadFilesServer.Controllers
                 var person = JsonConvert.DeserializeObject<Person>(contentPerson);
                 _logger.LogInformation("Person identified : " + person.Name);
                 //#endregion
-                string body = string.Format("<html><body><div> Identified Person: <h6>{0}</h6><img [src]={1}  /></div></body></html>", person.Name, imageFilePath);
+                string body = string.Format("<div> This person identified during the surveillance in your premises, and his/her name : <h5 style='color: green'>{0} </h5> <img width='452' height='302' src={1}  /></div>", person.Name, imageFilePath);
                 var mailMessage = new MailMessage(_appSettings.Email, _appSettings.Email, "Person Detected & Identified :"+ person.Name, body);
+                mailMessage.IsBodyHtml = true;
                 SendEmail(mailMessage);
+
                 _logger.LogInformation("Email sent successfully to the address : " + _appSettings.Email);
                 return person;
 
@@ -222,12 +224,12 @@ namespace UploadFilesServer.Controllers
             {
                 try
                 {
-                    mailMessage.IsBodyHtml = true;                    
                     client.Host = "smtp.gmail.com";
-                    client.Port = 465;
-                    client.Credentials = new System.Net.NetworkCredential(_appSettings.Email, "India123@");
+                    client.Port = 587;
                     client.UseDefaultCredentials = false;
-                    client.Send(mailMessage);
+                    client.Credentials = new System.Net.NetworkCredential(_appSettings.Email, "India123@");
+                    client.EnableSsl = true;
+                    client.Send(mailMessage);                    
                 }
                 catch
                 {
@@ -241,6 +243,5 @@ namespace UploadFilesServer.Controllers
                 }
             }
         }
-
     }
 }
