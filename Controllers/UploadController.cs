@@ -18,6 +18,7 @@ using UploadFilesServer.Models;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using Microsoft.Extensions.Options;
+using System.Net.Mail;
 
 namespace UploadFilesServer.Controllers
 {
@@ -95,8 +96,9 @@ namespace UploadFilesServer.Controllers
                     BlobClient blobShare = new BlobClient(_appSettings.StorageConnection, _appSettings.Container, fileName);
                     string imageUri = blobShare.Uri.AbsoluteUri;
                     var contentInfo = blobShare.Upload(file.OpenReadStream());
-                   var person = await MakeAnalysisRequest(imageUri);
-                    //return Ok(new { imageUri });
+                    _logger.LogInformation("Blob upload success, image url:"+ imageUri);
+                    var person = await MakeAnalysisRequest(imageUri);
+                    _logger.LogInformation("Person identified & Email Send:" + person.Name);
                     return Ok(new { imageUri, person });
                 }
                 else
@@ -149,21 +151,23 @@ namespace UploadFilesServer.Controllers
 
                 // Get the JSON response.
                 string contentString = await response.Content.ReadAsStringAsync();
-                
+
                 var faces = JsonConvert.DeserializeObject<List<Face>>(contentString);
+
+                _logger.LogInformation("Face identified using detect api call"+ uriDetect);
                 #endregion
 
                 #region Identify Persons
-              
-               List<Guid> faceIds = new List<Guid>();
-                                
+
+                List<Guid> faceIds = new List<Guid>();
+
                 foreach (Face face in faces)
                 {
-                    faceIds.Add(face.FaceId);                   
+                    faceIds.Add(face.FaceId);
                 }
 
                 string uriIdentify = uriBase + "identify";
-                               
+
                 IdentifyInput identifyInput = new IdentifyInput();
                 identifyInput.FaceIds = faceIds;
                 identifyInput.PersonGroupId = "apartment";
@@ -178,12 +182,12 @@ namespace UploadFilesServer.Controllers
                 // Get the JSON response.
                 string contentIdentify = await response.Content.ReadAsStringAsync();
                 var identifiedFaces = JsonConvert.DeserializeObject<List<IdentifyOutput>>(contentIdentify);
-
+                _logger.LogInformation("Faces identified using identify api call" + uriIdentify);
                 #endregion
 
                 //#region Person Details
 
-                string uriPerson = uriBase + "persongroups/"+ _appSettings.PersonGroup + "/persons/" + identifiedFaces[0].Candidates[0].PersonId;
+                string uriPerson = uriBase + "persongroups/" + _appSettings.PersonGroup + "/persons/" + identifiedFaces[0].Candidates[0].PersonId;
 
                 // Execute the REST API call.
                 response = await client.GetAsync(uriPerson);
@@ -191,10 +195,14 @@ namespace UploadFilesServer.Controllers
                 // Get the JSON response.
                 string contentPerson = await response.Content.ReadAsStringAsync();
                 var person = JsonConvert.DeserializeObject<Person>(contentPerson);
-
+                _logger.LogInformation("Person identified : " + person.Name);
                 //#endregion
+                string body = string.Format("<html><body><div> Identified Person: <h6>{0}</h6><img [src]={1}  /></div></body></html>", person.Name, imageFilePath);
+                var mailMessage = new MailMessage(_appSettings.Email, _appSettings.Email, "Person Detected & Identified :"+ person.Name, body);
+                SendEmail(mailMessage);
+                _logger.LogInformation("Email sent successfully to the address : " + _appSettings.Email);
+                return person;
 
-                return person;          
             }
         }
 
@@ -208,6 +216,30 @@ namespace UploadFilesServer.Controllers
             }
         }
 
+        private void SendEmail(MailMessage mailMessage)
+        {
+            using (var client = new SmtpClient())
+            {
+                try
+                {                   
+                    client.Host = "smtp.gmail.com";
+                    client.Port = 465;
+                    client.Credentials = new System.Net.NetworkCredential(_appSettings.Email, "India123@");
+                    client.UseDefaultCredentials = false;
+                    client.Send(mailMessage);
+                }
+                catch
+                {
+                    //log an error message or throw an exception, or both.
+                    throw;
+                }
+                finally
+                {
+                   // await client.DisconnectAsync(true);
+                    client.Dispose();
+                }
+            }
+        }
 
     }
 }
