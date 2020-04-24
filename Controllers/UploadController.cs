@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using UploadFilesServer.Models;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using Microsoft.Extensions.Options;
 
 namespace UploadFilesServer.Controllers
 {
@@ -27,12 +28,15 @@ namespace UploadFilesServer.Controllers
         private readonly ILogger<UploadController> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         string returnJson = string.Empty;
+        private readonly AppSettings _appSettings;
 
         public UploadController(ILogger<UploadController> logger,
-                              IHttpContextAccessor httpContextAccessor)
+                              IHttpContextAccessor httpContextAccessor, IOptions<AppSettings> appSettings)
         {
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
+            _appSettings = appSettings.Value;
+
         }
 
         [HttpPost, DisableRequestSizeLimit]
@@ -76,6 +80,7 @@ namespace UploadFilesServer.Controllers
             }
         }
 
+
         [HttpPost("UploadAzure"), DisableRequestSizeLimit]
         public async Task<IActionResult> UploadAzure()
         {
@@ -86,7 +91,8 @@ namespace UploadFilesServer.Controllers
                 if (file.Length > 0)
                 {
                     var fileName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"');
-                    BlobClient blobShare = new BlobClient("DefaultEndpointsProtocol=https;AccountName=imagefaceprocess;AccountKey=JMNqY9DyKRnPZHSd6r7eUnBzoxHDsHWrweE8eG9z/x1E/NqoSihrv5VgmJJbNIjapylEvsqFcKDXnUkv4lEmnQ==;EndpointSuffix=core.windows.net", "imagesprocess", fileName);
+
+                    BlobClient blobShare = new BlobClient(_appSettings.StorageConnection, _appSettings.Container, fileName);
                     string imageUri = blobShare.Uri.AbsoluteUri;
                     var contentInfo = blobShare.Upload(file.OpenReadStream());
                    var person = await MakeAnalysisRequest(imageUri);
@@ -107,9 +113,8 @@ namespace UploadFilesServer.Controllers
         // Gets the analysis of the specified image by using the Face REST API.
         private async Task<Person> MakeAnalysisRequest(string imageFilePath)
         {
-            const string subscriptionKey = "0155f89f28a24c398bf716d073219284";
-            const string uriBase =
-                "https://eastus.api.cognitive.microsoft.com/face/v1.0/";
+            string subscriptionKey = _appSettings.StorageKey;
+            string uriBase = _appSettings.FaceApiUrl;
 
             HttpClient client = new HttpClient();
 
@@ -144,9 +149,7 @@ namespace UploadFilesServer.Controllers
 
                 // Get the JSON response.
                 string contentString = await response.Content.ReadAsStringAsync();
-                //Face face = new Face();
-                //face.FaceId = contentString.Split(',')[0].Split(':')[1].Replace('"',' ').Trim();
-                //face.ImageUrl = imageFilePath;
+                
                 var faces = JsonConvert.DeserializeObject<List<Face>>(contentString);
                 #endregion
 
@@ -180,7 +183,7 @@ namespace UploadFilesServer.Controllers
 
                 //#region Person Details
 
-                string uriPerson = uriBase + "persongroups/apartment/persons/" + identifiedFaces[0].Candidates[0].PersonId;
+                string uriPerson = uriBase + "persongroups/"+ _appSettings.PersonGroup + "/persons/" + identifiedFaces[0].Candidates[0].PersonId;
 
                 // Execute the REST API call.
                 response = await client.GetAsync(uriPerson);

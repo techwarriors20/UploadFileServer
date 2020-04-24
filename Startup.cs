@@ -16,6 +16,11 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using UploadFilesServer.Context;
+using Swashbuckle.AspNetCore.Swagger;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using DocumentFormat.OpenXml.EMMA;
+using UploadFilesServer.Models;
 
 namespace UploadFilesServer
 {
@@ -42,15 +47,36 @@ namespace UploadFilesServer
                     .AllowAnyHeader());
             });
 
-            services.Configure<FormOptions>(o => 
-            { 
-                o.ValueLengthLimit = int.MaxValue; 
-                o.MultipartBodyLengthLimit = int.MaxValue; 
-                o.MemoryBufferThreshold = int.MaxValue; 
+            services.Configure<FormOptions>(o =>
+            {
+                o.ValueLengthLimit = int.MaxValue;
+                o.MultipartBodyLengthLimit = int.MaxValue;
+                o.MemoryBufferThreshold = int.MaxValue;
             });
+
+            #region "Swagger"
+
+            services.AddSwaggerGen(c =>
+            {
+
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Version = "v1.0.0",
+                    Title = $"Face Identity Api",
+                    Description = "Face Identity Api",
+                });
+            });
+
+            #endregion
 
             services.AddControllers();
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+            // 1. Read app settings from AppSettings key from appsettings.json file
+            var appSettingsSection = Configuration.GetSection("AppSettings");
+
+            // 2. Register it with a strongly typed object to access it using dependency injection 
+            services.Configure<AppSettings>(appSettingsSection);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -65,8 +91,8 @@ namespace UploadFilesServer
 
             app.UseCors("CorsPolicy");
             app.UseStaticFiles();
-            
-           if (!Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), @"Images")))
+
+            if (!Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), @"Images")))
                 Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), @"Images"));
 
             app.UseStaticFiles(new StaticFileOptions()
@@ -78,11 +104,16 @@ namespace UploadFilesServer
             app.UseRouting();
 
             app.UseAuthorization();
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "v1 Face Identity Api");
+            });
 
             app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
+                {
+                    endpoints.MapControllers();
+                });
         }
     }
 }
