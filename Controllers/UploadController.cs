@@ -221,7 +221,8 @@ namespace UploadFilesServer.Controllers
             using (var client = new SmtpClient())
             {
                 try
-                {                   
+                {
+                    mailMessage.IsBodyHtml = true;                    
                     client.Host = "smtp.gmail.com";
                     client.Port = 465;
                     client.Credentials = new System.Net.NetworkCredential(_appSettings.Email, "India123@");
