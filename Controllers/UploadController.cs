@@ -200,14 +200,40 @@ namespace UploadFilesServer.Controllers
                 _logger.LogInformation("Person identified : " + person.Name);
                 #endregion
 
-            #region Email
-                string body = string.Format("<div> This person identified during the surveillance in your premises, and his/her name : <h5 style='color: green'>{0} </h5> <img width='452' height='302' src={1}  /></div>", person.Name, imageFilePath);
-                var mailMessage = new MailMessage(_appSettings.Email, _appSettings.Email, "Person Detected & Identified :"+ person.Name, body);
-                mailMessage.IsBodyHtml = true;
-                SendEmail(mailMessage);
+                #region Email
+                if (_appSettings.LogicAppEmail == "1")
+                {
+                    string uriEmail = "https://prod-21.southcentralus.logic.azure.com:443/workflows/64f663f991124b099b87422da8b396f1/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=aOSAOh4bC5OQ4jmAqCKLSpRyptPUOdOFcgia-WGu30Q";
+                    string bodyContent = string.Format("<div><img width='452' height='302' src={0}  /></div>", imageFilePath);
+
+                    Email email = new Email();
+                    email.to = _appSettings.Email;
+                    email.from= _appSettings.Email;
+                    email.bodycontent = bodyContent;
+                    email.subject = "Person Detected & Identified :" + person.Name;
+                    email.url = imageFilePath;
+                    email.name = person.Name;
+
+                    HttpContent httpEmail = new StringContent(JsonConvert.SerializeObject(email), Encoding.UTF8);
+                    httpEmail.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                    // Execute the REST API call.
+                    response = await client.PostAsync(uriEmail, httpEmail);
+                    // Get the JSON response.
+                    string emailResponse = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation("Email sent successfully using azure applogic : " + emailResponse);
+                }
+                else
+                {
+                    string body = string.Format("<div> This person identified during the surveillance in your premises, and his/her name : <h5 style='color: green'>{0} </h5> <img width='452' height='302' src={1}  /></div>", person.Name, imageFilePath);
+                    var mailMessage = new MailMessage(_appSettings.Email, _appSettings.Email, "Person Detected & Identified :" + person.Name, body);
+                    mailMessage.IsBodyHtml = true;
+                    SendEmail(mailMessage);
+                }
 
                 _logger.LogInformation("Email sent successfully to the address : " + _appSettings.Email);
-                #endregion
+           #endregion
+
                 return person;
 
             }

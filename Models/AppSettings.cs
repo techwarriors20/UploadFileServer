@@ -11,6 +11,7 @@ namespace UploadFilesServer.Models
         public string StorageKey { get; set; }
         public string Container { get; set; }        
         public string PersonGroup { get; set; }
-        public string Email { get; set; }        
+        public string Email { get; set; }
+        public string LogicAppEmail { get; set; }
     }
 }
